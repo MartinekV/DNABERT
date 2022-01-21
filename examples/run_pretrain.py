@@ -32,6 +32,7 @@ from typing import Dict, List, Tuple
 from copy import deepcopy
 from multiprocessing import Pool
 
+from comet_ml import Experiment
 import numpy as np
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -301,7 +302,7 @@ def mask_tokens(inputs: torch.Tensor, tokenizer: PreTrainedTokenizer, args) -> T
     return inputs, labels
 
 
-def train(args, train_dataset, model: PreTrainedModel, tokenizer: PreTrainedTokenizer) -> Tuple[int, float]:
+def train(args, train_dataset, model: PreTrainedModel, tokenizer: PreTrainedTokenizer, current_experiment) -> Tuple[int, float]:
     """ Train the model """
     if args.local_rank in [-1, 0]:
         tb_writer = SummaryWriter()
@@ -461,8 +462,14 @@ def train(args, train_dataset, model: PreTrainedModel, tokenizer: PreTrainedToke
                         results = evaluate(args, model, tokenizer)
                         for key, value in results.items():
                             tb_writer.add_scalar("eval_{}".format(key), value, global_step)
+                            current_experiment.log_metric("eval_{}".format(key), value, global_step)
+
                     tb_writer.add_scalar("lr", scheduler.get_lr()[0], global_step)
+                    current_experiment.log_metric("lr", scheduler.get_lr()[0], global_step)
+
                     tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
+                    current_experiment.log_metric("tr loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
+
                     logging_loss = tr_loss
 
                 if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
@@ -548,6 +555,9 @@ def evaluate(args, model: PreTrainedModel, tokenizer: PreTrainedTokenizer, prefi
 
     result = {"perplexity": perplexity}
 
+
+
+
     output_eval_file = os.path.join(eval_output_dir, prefix, "eval_results.txt")
     with open(output_eval_file, "a") as writer:
         logger.info("***** Eval results {} *****".format(prefix))
@@ -560,6 +570,10 @@ def evaluate(args, model: PreTrainedModel, tokenizer: PreTrainedTokenizer, prefi
 
 
 def main():
+    #TODO dont push api key!
+    current_experiment = Experiment(project_name="PRETRAINING BERT", api_key='PUT YOUR API KEY HERE')
+    current_experiment.set_name('Pretraining yo')
+
     parser = argparse.ArgumentParser()
 
     # Required parameters
@@ -832,8 +846,10 @@ def main():
         if args.local_rank == 0:
             torch.distributed.barrier()
 
-        global_step, tr_loss = train(args, train_dataset, model, tokenizer)
+        global_step, tr_loss = train(args, train_dataset, model, tokenizer, current_experiment)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
+        # current_experiment.log_metric("train loss", tr_loss, step=global_step)
+
 
     # Saving best-practices: if you use save_pretrained for the model and tokenizer, you can reload them using from_pretrained()
     if args.do_train and (args.local_rank == -1 or torch.distributed.get_rank() == 0):
@@ -878,6 +894,7 @@ def main():
             result = dict((k + "_{}".format(global_step), v) for k, v in result.items())
             results.update(result)
 
+    current_experiment.end()
     return results
 
 
