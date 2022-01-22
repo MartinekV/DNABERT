@@ -8,7 +8,6 @@ KMER=6
 
 # TRAIN_FILE=f'{cd_comm}sample_data/pre/6_3k.txt'
 # TEST_FILE=f'{cd_comm}sample_data/pre/6_3k.txt'
-
 TRAIN_FILE='data/Homo_sapiens_GRCh38_cdna_abinitio_fa_gz/train/1/cdna.txt'
 TEST_FILE='data/Homo_sapiens_GRCh38_cdna_abinitio_fa_gz/valid/1/cdna.txt'
 
@@ -26,6 +25,7 @@ OUTPUT_PATH=f'vlasta_output_{KMER}'
 
 
     # --num_train_epochs=1 \
+    # --model_name_or_path=None \ #TODO use to continue training
 
 
 os.system(f"python {cd_comm}run_pretrain.py \
