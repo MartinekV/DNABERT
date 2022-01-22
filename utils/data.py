@@ -53,7 +53,6 @@ def download_dataset(data_file, force_reload=False, data_root=Path('../data'),
     
 def download_Homo_sapiens_cDNA(data_file, force_reload, data_root, 
                   valid_ratio, seeds, data_folder, downsampling, logger):
-    
     # download raw data
     logger("Downloading data...")
     data_dest = data_root / 'raw_data' / data_file
@@ -87,41 +86,36 @@ def download_Homo_sapiens_cDNA(data_file, force_reload, data_root,
 
     
     with gzip.open(data_dest, "rt") as handle:
-        # 
         joint_file_path_train = train_path / ("cdna" + '.txt')
         joint_file_path_valid = valid_path / ("cdna" + '.txt')
 
         with joint_file_path_train.open("a") as joint_file_train, joint_file_path_valid.open("a") as joint_file_valid:
 
-            for record in SeqIO.parse(handle, "fasta"):
-                id = record.id
-                # seq = str(record.seq)
-                text = str(record.seq)
-                # 
-                # kmerized_seq = [(label, tokenizer([text[i:i+offset] 
-                #     for i in range(0, len(text)-offset+1, stride)], max_length=max_seq_len, padding=False, is_split_into_words=True, truncation=True, verbose=True).input_ids)
-                #     for text, label in data]
-                # kmerized_seq = [text[i:i+offset] for i in range(0, len(text)-offset+1, stride)]
-                kmerized_seq = ''
-                for i in range(0, len(text)-offset+1, stride):
-                    kmerized_seq += text[i:i+offset] + ' '
-                    if i >= 511:
-                        break
-                # remove last white space
-                kmerized_seq = kmerized_seq[:-1]
+            records = list(SeqIO.parse(handle, "fasta"))
+            total_sequences = len(records) 
+            split_index = int(total_sequences*(1-valid_ratio))
+            random.Random(42).shuffle(records)
 
-                if random_generator_split.random() < 1 - valid_ratio:
-                    # file_path = train_path / (id + '.txt')
-                    if random_generator_downsampling.random() < downsampling[0]:
-                        # file_path.write_text(seq)
-                        # 
-                        joint_file_train.write(kmerized_seq + '\n')
+            for i, record in enumerate(records):
+                id = record.id
+                text = str(record.seq)
+
+                kmerized_seq = []
+                for j in range(0, len(text)-offset+1, stride):
+                    kmerized_seq.append(text[j:j+offset])
+
+                total_tokens = len(kmerized_seq)
+                iters = (total_tokens//510)+1
+
+                if i < split_index:
+                    tr_tot+=1
+                    for j in range(iters):
+                        joint_file_train.write(" ".join(kmerized_seq[j*510:(j+1)*510]) + '\n')
+
                 else:
-                    # file_path = valid_path / (id + '.txt')
-                    if random_generator_downsampling.random() < downsampling[1]:
-                        # file_path.write_text(seq)
-                        # 
-                        joint_file_valid.write(kmerized_seq + '\n')
+                    vl_tot+=1
+                    for j in range(iters):
+                        joint_file_valid.write(" ".join(kmerized_seq[j*510:(j+1)*510]) + '\n')
             
     
     ntrain, nvalid = len(list(train_path.glob("*.txt"))), len(list(valid_path.glob("*.txt")))
@@ -130,139 +124,3 @@ def download_Homo_sapiens_cDNA(data_file, force_reload, data_root,
     return data_folder
 
 
-def download_fasta_iEnhancer(data_file, force_reload, data_root, 
-                  valid_ratio, seeds, data_folder, downsampling, logger):
-    
-    # download raw data
-    logger("Downloading data...")
-    
-    (data_root / 'raw_data' / data_file).mkdir(parents=True, exist_ok=True)
-    
-    for f in ["enhancer.cv.txt", "enhancer.ind.txt", "non.cv.txt", "non.ind.txt"]:
-        data_dest = data_root / 'raw_data' / data_file / f
-        
-        if force_reload and data_dest.exists():
-            data_dest.unlink()
-        if not data_dest.exists():
-            urllib.request.urlretrieve(DATA_URLS[data_file] + '/' + f, data_dest)
-        logger(f"{f} downloaded...")
-        
-
-    # prepare folders
-    shutil.rmtree(data_folder)  # deletes data_folder and its content
-
-    train_path = data_folder / "train"
-    valid_path = data_folder / "valid"
-    test_path = data_folder / "test"
-    
-    for p in [train_path, valid_path, test_path]:
-        (p / "0").mkdir(parents=True, exist_ok=True)
-        (p / "1").mkdir(parents=True, exist_ok=True)
-
-    logger("Folder structure created...")
-        
-    random_generator_split = random.Random() # for train/valid split
-    random_generator_downsampling = random.Random()
-    random_generator_split.seed(seeds[0])
-    random_generator_downsampling.seed(seeds[1])
-
-    for f, label in [('enhancer.cv.txt', '1'), ('non.cv.txt', '0')]:
-        
-        with open(data_root / 'raw_data' / data_file / f, "rt") as handle:
-            for record in SeqIO.parse(handle, "fasta"):
-                id = record.id
-                seq = str(record.seq)
-
-                if random_generator_split.random() < 1 - valid_ratio:
-                    file_path = train_path / label / (id + '.txt')
-                    if random_generator_downsampling.random() < downsampling[0]:
-                        file_path.write_text(seq)
-                else:
-                    file_path = valid_path / label / (id + '.txt')
-                    if random_generator_downsampling.random() < downsampling[1]:
-                        file_path.write_text(seq)
-   
-
-    for f, label in [('enhancer.ind.txt', '1'), ('non.ind.txt', '0')]:
-        
-        with open(data_root / 'raw_data' / data_file / f, "rt") as handle:
-            for record in SeqIO.parse(handle, "fasta"):
-                id = record.id
-                seq = str(record.seq)
-
-                filename = id + '.txt'
-                file_path = Path(test_path / label / filename)
-                file_path.write_text(seq)
-    
-    ntrain, nvalid, ntest = len(list(train_path.glob("*/*.txt"))), len(list(valid_path.glob("*/*.txt"))), len(list(test_path.glob("*/*.txt")))
-    logger(f"Done, {ntrain} train seqs,  {nvalid} valid seqs, {ntest} test seqs.")
-
-    return data_folder
-
-def download_DeepRKE(data_file, force_reload, data_root, 
-                  valid_ratio, seeds, data_folder, downsampling, logger):
-    
-    # download raw data
-    logger("Downloading data...")
-    data_dest = data_root / 'raw_data' / (data_file + ".zip")
-    if force_reload and data_dest.exists():
-        data_dest.unlink()
-    if not data_dest.exists():
-        urllib.request.urlretrieve(DATA_URLS[data_file], data_dest)
-    logger("Data downloaded...")
-    
-    # unzip into tempdir
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        
-        with zipfile.ZipFile(str(data_dest), 'r') as zip_ref:
-            zip_ref.extractall(tmpdirname)
-        
-        shutil.rmtree(data_folder)  # deletes data_folder and its content
-        
-        rke_data_path = Path(tmpdirname + "/DeepRKE-master/data")
-        datasets = sorted([f.name[:-9] for f in rke_data_path.glob("./*train.gz")])
-        
-        for d in datasets:
-            for label in ["0", "1"]:
-                (data_folder / d / "train" / label).mkdir(parents=True)
-                (data_folder / d / "test" / label).mkdir(parents=True)
-                (data_folder / d / "valid" / label).mkdir(parents=True)
-        logger("Folder structure created...")
-        
-        random_generator_split = random.Random() # for train/valid split
-        random_generator_downsampling = random.Random()
-        random_generator_split.seed(seeds[0])
-        random_generator_downsampling.seed(seeds[1])
-        
-        for d in datasets:
-            logger("Processing " + d + "...")
-            
-            train_df = pd.read_csv(rke_data_path /  (d + "_train.gz"), sep="\t")
-            
-            for index, row in train_df.iterrows():
-                idx = str(index)
-                seq = row['sequence']
-                label = str(row['label'])
-                
-                if random_generator_split.random() < 1 - valid_ratio:
-                    file_path = data_folder / d / "train" / label / (idx + '.txt')
-                    if random_generator_downsampling.random() < downsampling[0]:
-                        file_path.write_text(seq)
-                else:
-                    file_path = data_folder / d / "valid" / label / (idx + '.txt')
-                    if random_generator_downsampling.random() < downsampling[1]:
-                        file_path.write_text(seq)
-                                 
-            test_df = pd.read_csv(rke_data_path /  (d + "_test.gz"), sep="\t")
-                                 
-            for index, row in test_df.iterrows():
-                idx = str(index)
-                seq = row['sequence']
-                label = str(row['label'])
-                
-                file_path = (data_folder / d / "test" / str(row["label"])) / (str(index) + '.txt')
-                file_path.write_text(row['sequence'])
-
-    logger("Done.")
-                
-    return [data_folder / d for d in datasets]
