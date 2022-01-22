@@ -29,6 +29,7 @@ OUTPUT_PATH=f'vlasta_output_{KMER}'
 
 
 os.system(f"python {cd_comm}run_pretrain.py \
+    --model_name_or_path={OUTPUT_PATH}  \
     --num_train_epochs=1 \
     --output_dir {OUTPUT_PATH} \
     --model_type=dna \
@@ -45,7 +46,7 @@ os.system(f"python {cd_comm}run_pretrain.py \
     --save_steps 500 \
     --save_total_limit 20 \
     --evaluate_during_training \
-    --logging_steps 15 \
+    --logging_steps 100 \
     --line_by_line \
     --learning_rate 4e-4 \
     --block_size 512 \
