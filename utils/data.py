@@ -15,7 +15,10 @@ from Bio import SeqIO
 DATA_URLS = {
     "Homo_sapiens.GRCh38.cdna.abinitio.fa.gz": "http://ftp.ensembl.org/pub/release-103/fasta/homo_sapiens/cdna/Homo_sapiens.GRCh38.cdna.abinitio.fa.gz",
     "Homo_sapiens-enhancers-iEnhancer-2L": "https://raw.githubusercontent.com/khanhlee/bert-enhancer/main/data/",
-    "DeepRKE": "https://github.com/youzhiliu/DeepRKE/archive/refs/heads/master.zip"
+    "DeepRKE": "https://github.com/youzhiliu/DeepRKE/archive/refs/heads/master.zip",
+    # "tss_neighborhood2.fa.gz": "https://github.com/davidcechak/tss_neighborhood/blob/main/tss_neighborhood2.fa.gz?raw=true",
+    # "tss_neighborhood2.fa.gz": "https://github.com/davidcechak/tss_neighborhood/blob/main/tss_neighborhood2.fa.gz",
+    "tss_neighborhood2.fa.gz": "https://github.com/davidcechak/tss_neighborhood/raw/main/tss_neighborhood2.fa.gz",
 }
 
 
@@ -41,16 +44,19 @@ def download_dataset(data_file, force_reload=False, data_root=Path('../data'),
     if data_file == "Homo_sapiens.GRCh38.cdna.abinitio.fa.gz":
         return download_Homo_sapiens_cDNA(data_file, force_reload, data_root, 
                   valid_ratio, seeds, data_folder, downsampling, logger)
-
-    if data_file == "Homo_sapiens-enhancers-iEnhancer-2L":
-        return download_fasta_iEnhancer(data_file, force_reload, data_root, 
-                  valid_ratio, seeds, data_folder, downsampling, logger)
-    
-    if data_file == "DeepRKE":
-        return download_DeepRKE(data_file, force_reload, data_root, 
+        
+    if data_file == "tss_neighborhood2.fa.gz":
+        print("download_tss_neighborhood")
+        return download_tss_neighborhood(data_file, force_reload, data_root, 
                   valid_ratio, seeds, data_folder, downsampling, logger)
 
+
+def download_tss_neighborhood(data_file, force_reload, data_root, 
+                  valid_ratio, seeds, data_folder, downsampling, logger):
+    return download_Homo_sapiens_cDNA(data_file, force_reload, data_root, 
+                  valid_ratio, seeds, data_folder, downsampling, logger)
     
+
 def download_Homo_sapiens_cDNA(data_file, force_reload, data_root, 
                   valid_ratio, seeds, data_folder, downsampling, logger):
     # download raw data
@@ -83,18 +89,25 @@ def download_Homo_sapiens_cDNA(data_file, force_reload, data_root,
     kmer_len = 6
     stride = 1
     offset = kmer_len
+    input_len = 510
+    # input_len = 512
 
-    
-    with gzip.open(data_dest, "rt") as handle:
+    print(data_dest)
+    # with gzip.open(data_dest, "rt") as handle:
+    with gzip.open(data_dest, "rt", compresslevel=6) as handle:
         joint_file_path_train = train_path / ("cdna" + '.txt')
         joint_file_path_valid = valid_path / ("cdna" + '.txt')
+        print(handle)
 
         with joint_file_path_train.open("a") as joint_file_train, joint_file_path_valid.open("a") as joint_file_valid:
 
             records = list(SeqIO.parse(handle, "fasta"))
+            # records = list(SeqIO.parse(handle, "fasta-2line"))
             total_sequences = len(records) 
             split_index = int(total_sequences*(1-valid_ratio))
             random.Random(42).shuffle(records)
+            tr_tot = 0
+            vl_tot = 0
 
             for i, record in enumerate(records):
                 id = record.id
@@ -104,18 +117,19 @@ def download_Homo_sapiens_cDNA(data_file, force_reload, data_root,
                 for j in range(0, len(text)-offset+1, stride):
                     kmerized_seq.append(text[j:j+offset])
 
+
                 total_tokens = len(kmerized_seq)
-                iters = (total_tokens//510)+1
+                iters = (total_tokens//input_len)+1
 
                 if i < split_index:
                     tr_tot+=1
                     for j in range(iters):
-                        joint_file_train.write(" ".join(kmerized_seq[j*510:(j+1)*510]) + '\n')
+                        joint_file_train.write(" ".join(kmerized_seq[j*input_len:(j+1)*input_len]) + '\n')
 
                 else:
                     vl_tot+=1
                     for j in range(iters):
-                        joint_file_valid.write(" ".join(kmerized_seq[j*510:(j+1)*510]) + '\n')
+                        joint_file_valid.write(" ".join(kmerized_seq[j*input_len:(j+1)*input_len]) + '\n')
             
     
     ntrain, nvalid = len(list(train_path.glob("*.txt"))), len(list(valid_path.glob("*.txt")))
