@@ -29,9 +29,12 @@ OUTPUT_PATH=f'vlasta_output_{KMER}'
     # --num_train_epochs=1 \
     # --model_name_or_path=None \ #TODO use to continue training
     # --model_name_or_path={OUTPUT_PATH}  \
+    # --warmup_steps 10000 \
+
 
 
 os.system(f"python {cd_comm}run_pretrain.py \
+    --model_name_or_path={OUTPUT_PATH}  \
     --num_train_epochs=1 \
     --output_dir {OUTPUT_PATH} \
     --model_type=dna \

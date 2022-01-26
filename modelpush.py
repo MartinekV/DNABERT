@@ -7,8 +7,8 @@ model = AutoModel.from_pretrained('vlasta_output_6')
 tokenizer = AutoTokenizer.from_pretrained("vlasta_output_6")
 
 
-model.push_to_hub("Vlasta/CDNA_bert_6")
-tokenizer.push_to_hub("Vlasta/CDNA_bert_6")
+model.push_to_hub("Vlasta/tss_bert_6")
+tokenizer.push_to_hub("Vlasta/tss_bert_6")
 
 
 # Usage
