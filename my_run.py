@@ -28,9 +28,13 @@ OUTPUT_PATH=f'vlasta_output_{KMER}'
 
     # --num_train_epochs=1 \
     # --model_name_or_path=None \ #TODO use to continue training
+<<<<<<< HEAD
     # --model_name_or_path={OUTPUT_PATH}  \
     # --warmup_steps 10000 \
 
+=======
+    #TODO -DONT USE WARMUP WHEN CONTINUING TRAINING???
+>>>>>>> Flush push
 
 
 os.system(f"python {cd_comm}run_pretrain.py \

@@ -122,12 +122,10 @@ def download_Homo_sapiens_cDNA(data_file, force_reload, data_root,
                 iters = (total_tokens//input_len)+1
 
                 if i < split_index:
-                    tr_tot+=1
                     for j in range(iters):
                         joint_file_train.write(" ".join(kmerized_seq[j*input_len:(j+1)*input_len]) + '\n')
 
                 else:
-                    vl_tot+=1
                     for j in range(iters):
                         joint_file_valid.write(" ".join(kmerized_seq[j*input_len:(j+1)*input_len]) + '\n')
             
